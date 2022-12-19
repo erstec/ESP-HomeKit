@@ -22,6 +22,15 @@
 
 #include <led_timer.h>
 
+bool received_sat = false;
+bool received_hue = false;
+
+bool is_on = false;
+float current_brightness =  100.0;
+float current_sat = 0.0;
+float current_hue = 0.0;
+int rgb_colors[3];
+
 ButtonDebounce btn(PIN_BUTTON, INPUT_PULLUP, LOW);
 ButtonHandler btnHandler(10000);
 
@@ -31,6 +40,8 @@ void builtinledSetStatus(bool on);
 void homekit_setup();
 void homekit_loop();
 void my_homekit_report();
+
+void updateColor();
 
 bool runOnce = false;
 bool switch_power = false;
@@ -61,6 +72,8 @@ extern "C" homekit_characteristic_t name;
 extern "C" homekit_characteristic_t serial_number;
 extern "C" homekit_characteristic_t cha_switch_on;
 extern "C" homekit_characteristic_t cha_bright;
+extern "C" homekit_characteristic_t cha_sat;
+extern "C" homekit_characteristic_t cha_hue;
 
 void handleRoot() {
 	String s = "";
@@ -151,6 +164,10 @@ void setup() {
 	ledTimerBegin();
 
 	ledTimerSetPattern(blink50);
+
+	rgb_colors[0] = 255;
+  	rgb_colors[1] = 255;
+  	rgb_colors[2] = 255;
 
 #if defined(USE_RTC)
 	uint32_t rtcMem;
@@ -313,21 +330,25 @@ void switchToggle() {
 void accessory_init() {
 	Serial.println("Init accessory...");
 	// digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
-	pinMode(PIN_RELAY, OUTPUT);
+	pinMode(PIN_OUT_RED, OUTPUT);
+	pinMode(PIN_OUT_GRN, OUTPUT);
+	pinMode(PIN_OUT_BLU, OUTPUT);
 	builtinledSetStatus(!switch_power);
 }
 
 void cha_switch_on_setter(const homekit_value_t value) {
-	printf("setter\n");
-// if (value.format == homekit_format_bool) {
-	bool on = value.bool_value;
-	switch_power = on;
-	saveCurrentState();
-	// cha_switch_on.value.bool_value = on;	//sync the value
-	Serial.printf("Switch: %s\n", on ? "ON" : "OFF");
-	builtinledSetStatus(!switch_power);
-	// digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
-// }
+    bool on = value.bool_value;
+	cha_switch_on.value.bool_value = on;	//sync the value
+
+    if (on) {
+        is_on = true;
+        Serial.println("On");
+    } else  {
+        is_on = false;
+        Serial.println("Off");
+    }
+
+    updateColor();
 }
 
 homekit_value_t cha_switch_on_getter() {
@@ -335,21 +356,131 @@ homekit_value_t cha_switch_on_getter() {
 	return HOMEKIT_BOOL_CPP(switch_power);
 }
 
-void cha_brightness_setter(const homekit_value_t value) {
-	printf("brightness setter\n");
-	int brightness = value.int_value;
-	cha_bright.value.int_value = brightness;
+void HSV2RGB(float h, float s, float v) {
+	int i;
+	float m, n, f;
 
-	printf("Brightness: %d\n", brightness);
+	s /= 100;
+	v /= 100;
 
-	//current_brightness = brightness;
+	if (s == 0) {
+		rgb_colors[0] = rgb_colors[1] = rgb_colors[2] = round(v * 255);
+		return;
+	}
 
-	//updateColor();
+	h /= 60;
+	i = floor(h);
+	f = h - i;
 
-	int pwm_brightness = (int)map(brightness, 0, 100, 0, 1024);
-	printf("PWM: %d\n", pwm_brightness);
+	if (!(i & 1)) {
+		f = 1 - f;
+	}
 
-	analogWrite(PIN_RELAY, pwm_brightness);
+	m = v * (1 - s);
+	n = v * (1 - s * f);
+
+	switch (i) {
+		case 0:
+		case 6:
+			rgb_colors[0] = round(v * 255);
+			rgb_colors[1] = round(n * 255);
+			rgb_colors[2] = round(m * 255);
+			break;
+
+		case 1:
+			rgb_colors[0] = round(n * 255);
+			rgb_colors[1] = round(v * 255);
+			rgb_colors[2] = round(m * 255);
+			break;
+
+		case 2:
+			rgb_colors[0] = round(m * 255);
+			rgb_colors[1] = round(v * 255);
+			rgb_colors[2] = round(n * 255);
+			break;
+
+		case 3:
+			rgb_colors[0] = round(m * 255);
+			rgb_colors[1] = round(n * 255);
+			rgb_colors[2] = round(v * 255);
+			break;
+
+		case 4:
+			rgb_colors[0] = round(n * 255);
+			rgb_colors[1] = round(m * 255);
+			rgb_colors[2] = round(v * 255);
+			break;
+
+		case 5:
+			rgb_colors[0] = round(v * 255);
+			rgb_colors[1] = round(m * 255);
+			rgb_colors[2] = round(n * 255);
+			break;
+	}
+}
+
+void updateColor() 
+{
+    if (is_on) {
+		//if (received_hue && received_sat) {
+			HSV2RGB(current_hue, current_sat, current_brightness);
+			received_hue = false;
+			received_sat = false;
+		//}
+
+		int b = map(current_brightness, 0, 100, 75, 255);
+		Serial.println(b);
+
+		printf("RGB: %d %d %d %d\n", rgb_colors[0], rgb_colors[1], rgb_colors[2], b);
+
+		int _br_saled = map(b, 0, 255, 0, 1023);
+		int _r = (int)map(rgb_colors[0], 0, 255, 0, _br_saled);
+		int _g = (int)map(rgb_colors[1], 0, 255, 0, _br_saled);
+		int _b = (int)map(rgb_colors[2], 0, 255, 0, _br_saled);
+		printf("RGB SCALED: %d %d %d %d\n", _r, _g, _b, _br_saled);
+
+		analogWrite(PIN_OUT_RED, _r);
+		analogWrite(PIN_OUT_GRN, _g);
+		analogWrite(PIN_OUT_BLU, _b);
+    } else if (!is_on) {
+		Serial.println("is_on == false");
+		analogWrite(PIN_OUT_RED, 0);
+		analogWrite(PIN_OUT_GRN, 0);
+		analogWrite(PIN_OUT_BLU, 0);
+	}
+}
+
+void set_hue(const homekit_value_t v) {
+    Serial.println("set_hue");
+    float hue = v.float_value;
+    cha_hue.value.float_value = hue; //sync the value
+
+    current_hue = hue;
+    received_hue = true;
+    
+    updateColor();
+}
+
+void set_sat(const homekit_value_t v) {
+    Serial.println("set_sat");
+    float sat = v.float_value;
+    cha_sat.value.float_value = sat; //sync the value
+
+    current_sat = sat;
+    received_sat = true;
+    
+    updateColor();
+
+}
+
+void set_bright(const homekit_value_t value) {
+    Serial.println("set_bright");
+    int bright = value.int_value;
+    cha_bright.value.int_value = bright; //sync the value
+
+    current_brightness = bright;
+
+    updateColor();
 }
 
 void homekit_setup() {
@@ -373,7 +504,9 @@ void homekit_setup() {
 	cha_switch_on.setter = cha_switch_on_setter;
 	cha_switch_on.getter = cha_switch_on_getter;
 
-	cha_bright.setter = cha_brightness_setter;
+	cha_bright.setter = set_bright;
+	cha_sat.setter = set_sat;
+	cha_hue.setter = set_hue;
 
 	// httpUpdater.setup(&httpServer, OTA_USER, serial_number_value);
 	// httpServer.begin();

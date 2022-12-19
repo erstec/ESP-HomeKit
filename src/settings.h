@@ -21,12 +21,19 @@
 #define ACCESSORY_PASSWORD              "111-11-111"
 #define ACCESSORY_SETUP_ID              "ABCD"
 
-#define PIN_LEDD    13	//D7    LED
-#define PIN_RELAY   14	//D5    RELAY
-#define PIN_BUTTON	4	//D2    BUTTON
-// #define PIN_LEDD	16	//D0    LED
-// #define PIN_RELAY  2	//D4    RELAY
-// #define PIN_BUTTON	0	//Dx    BUTTON
+#define PIN_LED     2
+
+#define PIN_SW1     9
+#define PIN_SW2     10
+#define PIN_SW3     13
+
+#define PIN_OUT1    4
+#define PIN_OUT2    12
+#define PIN_OUT3    14
+
+#define PIN_LEDD    PIN_LED
+#define PIN_RELAY   PIN_OUT3
+#define PIN_BUTTON	PIN_SW3
 
 #define COMMON_NUMEL(ARRAY) (sizeof(ARRAY) / sizeof(ARRAY[0]))
 

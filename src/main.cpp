@@ -161,6 +161,8 @@ void setup() {
 	Serial.setRxBufferSize(32);
 	Serial.setDebugOutput(false);
 
+	analogWriteFreq(25000);
+
 	ledTimerBegin();
 
 	ledTimerSetPattern(blink50);

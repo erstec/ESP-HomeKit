@@ -17,7 +17,7 @@
 #define ACCESSORY_MANUFACTURER 	        ("Arduino Homekit")
 #define ACCESSORY_MODEL  		        ("ESP8266")
 
-#define ACCESSORY_CHARACTERISTIC_NAME   "Outlet"
+#define ACCESSORY_CHARACTERISTIC_NAME   "LightBulb"
 #define ACCESSORY_PASSWORD              "111-11-111"
 #define ACCESSORY_SETUP_ID              "ABCD"
 
@@ -32,7 +32,7 @@
 #define PIN_OUT3    14
 
 #define PIN_LEDD    PIN_LED
-#define PIN_RELAY   PIN_OUT3
+#define PIN_RELAY   PIN_OUT1
 #define PIN_BUTTON	PIN_SW3
 
 #define COMMON_NUMEL(ARRAY) (sizeof(ARRAY) / sizeof(ARRAY[0]))

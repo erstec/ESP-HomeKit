@@ -60,6 +60,7 @@ extern "C" homekit_server_config_t config;
 extern "C" homekit_characteristic_t name;
 extern "C" homekit_characteristic_t serial_number;
 extern "C" homekit_characteristic_t cha_switch_on;
+extern "C" homekit_characteristic_t cha_bright;
 
 void handleRoot() {
 	String s = "";
@@ -304,14 +305,14 @@ void switchToggle() {
 	switch_power = !switch_power;
 	saveCurrentState();
 	builtinledSetStatus(!switch_power);
-	digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
+	// digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
 	cha_switch_on.value.bool_value = switch_power;
 	homekit_characteristic_notify(&cha_switch_on, cha_switch_on.value);
 }
 
 void accessory_init() {
 	Serial.println("Init accessory...");
-	digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
+	// digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
 	pinMode(PIN_RELAY, OUTPUT);
 	builtinledSetStatus(!switch_power);
 }
@@ -325,13 +326,30 @@ void cha_switch_on_setter(const homekit_value_t value) {
 	// cha_switch_on.value.bool_value = on;	//sync the value
 	Serial.printf("Switch: %s\n", on ? "ON" : "OFF");
 	builtinledSetStatus(!switch_power);
-	digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
+	// digitalWrite(PIN_RELAY, switch_power ? HIGH : LOW);
 // }
 }
 
 homekit_value_t cha_switch_on_getter() {
 	printf("getter\n");
 	return HOMEKIT_BOOL_CPP(switch_power);
+}
+
+void cha_brightness_setter(const homekit_value_t value) {
+	printf("brightness setter\n");
+	int brightness = value.int_value;
+	cha_bright.value.int_value = brightness;
+
+	printf("Brightness: %d\n", brightness);
+
+	//current_brightness = brightness;
+
+	//updateColor();
+
+	int pwm_brightness = (int)map(brightness, 0, 100, 0, 1024);
+	printf("PWM: %d\n", pwm_brightness);
+
+	analogWrite(PIN_RELAY, pwm_brightness);
 }
 
 void homekit_setup() {
@@ -354,6 +372,8 @@ void homekit_setup() {
 
 	cha_switch_on.setter = cha_switch_on_setter;
 	cha_switch_on.getter = cha_switch_on_getter;
+
+	cha_bright.setter = cha_brightness_setter;
 
 	// httpUpdater.setup(&httpServer, OTA_USER, serial_number_value);
 	// httpServer.begin();
